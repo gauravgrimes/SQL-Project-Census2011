@@ -1,0 +1,163 @@
+SELECT * FROM census.data1;
+
+SELECT * FROM census.data2;
+
+
+-- Number of rows into our dataset
+
+SELECT count(*) FROM census.data1;
+SELECT count(*) FROM census.data2;
+
+
+-- Dataset for Kerala and Tamil Nadu
+
+SELECT * FROM census.data1 
+WHERE state in ('Kerala' ,'Tamil Nadu') 
+ORDER BY state;
+
+
+-- Population of India
+
+SELECT sum(Population) as Population 
+FROM census.data2;
+
+
+-- Average Growth Rate
+
+SELECT state,ROUND(avg(growth),2) as avg_growth 
+FROM census.data1 
+GROUP BY state;
+
+-- Top 3 state showing highest growth rate
+
+SELECT state,ROUND(AVG(growth),2) as Avg_growth 
+FROM census.data1 
+GROUP BY state 
+ORDER BY avg_growth DESC 
+LIMIT 3;
+
+-- Average Sex Ratio
+
+SELECT state,round(avg(sex_ratio),0) as avg_sex_ratio 
+FROM census.data1 
+GROUP BY state 
+ORDER BY avg_sex_ratio DESC;
+
+-- Bottom 3 state showing lowest sex ratio
+
+SELECT state,round(AVG(sex_ratio),0) avg_sex_ratio 
+FROM census.data1 
+GROUP BY state 
+ORDER BY avg_sex_ratio ASC
+LIMIT 3;
+
+-- Average Literacy Rate
+ 
+SELECT state,round(avg(literacy),0) avg_literacy_ratio 
+FROM census.data1 
+GROUP BY state 
+ORDER BY avg_literacy_ratio DESC ;
+ 
+SELECT state,round(avg(literacy),0) avg_literacy_ratio 
+FROM census.data1 
+GROUP BY state 
+having round(avg(literacy),0)>90 
+ORDER BY avg_literacy_ratio DESC ;
+
+-- Top and Bottom 3 states in literacy state
+
+DROP TABLE topstates;
+
+CREATE TABLE topstates
+( state NVARCHAR(255),
+  topstate FLOAT
+  );
+
+INSERT INTO topstates
+SELECT state,round(AVG(literacy),0) avg_literacy_ratio 
+FROM census.data1 
+GROUP BY state 
+ORDER BY avg_literacy_ratio DESC;
+
+
+SELECT * 
+FROM topstates 
+ORDER BY topstates.topstate DESC
+LIMIT 3;
+
+DROP TABLE bottomstates;
+
+CREATE table bottomstates
+( state NVARCHAR(255),
+  bottomstate FLOAT
+  );
+
+INSERT INTO bottomstates
+SELECT state,round(AVG(literacy),0) avg_literacy_ratio FROM census.data1 
+GROUP BY state 
+ORDER BY avg_literacy_ratio DESC;
+
+SELECT * 
+FROM bottomstates 
+ORDER BY bottomstates.bottomstate ASC
+LIMIT 3 ;
+
+
+-- Union opertor
+
+SELECT * 
+FROM (
+SELECT * 
+FROM topstates 
+ORDER BY topstates.topstate DESC
+LIMIT 3) a
+
+UNION
+
+SELECT * FROM (
+SELECT * 
+FROM bottomstates 
+ORDER BY bottomstates.bottomstate ASC
+LIMIT 3) b;
+
+
+-- States starting with letter a
+
+SELECT DISTINCT state 
+FROM census.data1 
+WHERE lower(state) LIKE 'a%' OR lower(state) like 'b%';
+
+SELECT DISTINCT state 
+FROM census.data1 
+WHERE lower(state) like 'a%' and lower(state) like '%m';
+
+
+-- Total males and females
+
+SELECT d.state,sum(d.males) as Total_Males,sum(d.females) as Total_Females FROM
+(SELECT c.district,c.state state,round(c.population/(c.sex_ratio+1),0) males, round((c.population*c.sex_ratio)/(c.sex_ratio+1),0) females 
+FROM
+(SELECT a.district,a.state,a.sex_ratio/1000 sex_ratio,b.population 
+FROM census.data1 a inner join census.data2 b on a.district=b.district ) c) d
+GROUP BY d.state;
+
+
+-- Population in Previous Census
+
+SELECT sum(m.previous_census_population) as Previous_Census_Population,sum(m.current_census_population) as Current_Census_Population 
+FROM
+(SELECT e.state,sum(e.previous_census_population) previous_census_population,sum(e.current_census_population) current_census_population 
+FROM
+(SELECT d.district,d.state,round(d.population/(1+d.growth),0) previous_census_population,d.population current_census_population 
+FROM
+(SELECT a.district,a.state,a.growth growth,b.population 
+FROM census.data1 a inner join census.data2 b on a.district=b.district) d) e
+GROUP BY e.state)m
+;
+
+
+-- Top 3 District in each State in terms of Literacy Rate
+
+SELECT a.* FROM
+(SELECT district,state,literacy,RANK() OVER(PARTITION BY state ORDER BY literacy DESC) rnk FROM census.data1) a
+WHERE a.rnk IN (1,2,3) ORDER BY state;
